@@ -1,3 +1,4 @@
+require('dotenv').config();
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const express = require('express');
 const path = require('path');
@@ -17,17 +18,16 @@ let corsPolicy = cors(corsOptions);
 app.use(parser);
 app.use(corsPolicy);
 // app.options("*",corsPolicy);
-const port = 3001;
-const uri = "mongodb+srv://testux:Password1!@cluster0.boshskn.mongodb.net/?retryWrites=true&w=majority&appName=Cluster"
+const port = process.env.PORT || 3000;
+const uri = process.env.MONGO_URI;
 
 const firebaseConfig = {
-  apiKey: "AIzaSyDpvOG1a3N_luFIpPTEf0WnET5XxCE1N6M",
-  authDomain: "claseux-q2-2025.firebaseapp.com",
-  projectId: "claseux-q2-2025",
-  storageBucket: "claseux-q2-2025.firebasestorage.app",
-  messagingSenderId: "585294532817",
-  appId: "1:585294532817:web:ec3421bf5452863f54b5f0",
-  measurementId: "G-BHQSJFWK9E"
+  apiKey: process.env.FIREBASE_API_KEY,
+  authDomain: process.env.FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.FIREBASE_PROJECT_ID,
+  storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.FIREBASE_APP_ID,
 };
 
 const client = new MongoClient(uri, {
