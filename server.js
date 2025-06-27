@@ -3,31 +3,23 @@ const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const express = require('express');
 const path = require('path');
 const bodyParser = require('body-parser');
-const cors = require('cors');
 const app = express();
 const { initializeApp } = require("firebase/app");
 const { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } = require("firebase/auth");
+const { title } = require('process');
 let parser = bodyParser.urlencoded({ extended: true });
 
-
-var corsOptions = {
-    origin: '*'
-}
-let corsPolicy = cors(corsOptions);
-//Agregando servicios 
 app.use(parser);
-app.use(corsPolicy);
-// app.options("*",corsPolicy);
 const port = process.env.PORT || 3000;
 const uri = process.env.MONGO_URI;
 
 const firebaseConfig = {
-  apiKey: process.env.FIREBASE_API_KEY,
-  authDomain: process.env.FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.FIREBASE_PROJECT_ID,
-  storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.FIREBASE_APP_ID,
+    apiKey: process.env.FIREBASE_API_KEY,
+    authDomain: process.env.FIREBASE_AUTH_DOMAIN,
+    projectId: process.env.FIREBASE_PROJECT_ID,
+    storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
+    messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID,
+    appId: process.env.FIREBASE_APP_ID,
 };
 
 const client = new MongoClient(uri, {
@@ -46,118 +38,81 @@ async function run() {
     try {
         await client.connect();
         console.log("Conectados a la DB")
-        await client.db("sample_mflix").command({ ping: 1 });
+        await client.db("Examen_UX").command({ ping: 1 });
         console.log("ping exitoso! ")
     } catch (error) {
         console.log(error);
     }
 }
 
-
-// callback: funcion que se ejecuta al final de un proceso async
 app.listen(port, () => {
     console.log("El servidor se esta ejecutando en el puerto ", port);
     run();
 });
 
-console.log("Esta linea 'deberia' ejecutarse despues del listen", port);
 
 
-/*
-GET -> READ 
-POST -> CREATE
-PUT -> UPDATE 
-DELETE -> DELETE
-*/
-
-/*
-1) BE tiene el control TOTAL.
-  a) Establece como vamos a realizar las peticiones
-  b) BE decide a quien o a que responder 
-  c) BE decide QUE va a responder 
-  d) BE decide como gestiona la información que se le envia
-  e) BE decide que es un error / o que se considera un error
-*/
-
-/*
-    Terminos importantes: 
-    - Ruta: una dirección a la cual dirigiremos la solicitud
-    - Payload: información que viene con la solicitud.
-    - Endpoint: es la combinación de la ruta + el metodo HTTP.  
-*/
-
-app.post('/login',  (req, res) => {
-    try{
-        signInWithEmailAndPassword(auth, req.body.email,req.body.password)
-        .then((resp)=>{
-            res.status(200).send({
-                mensaje: "Bienvenido!",
-                respuesta: resp
-            });
-        })
-        .catch((error)=>{
-            res.status(500).send({error:error});
-        })
-    }catch(error){
-
-    }
-});
-
-app.post('/logOut',  (req, res) => {
-    try{
-      signOut(auth)
-        .then((resp)=>{
-            res.status(200).send({
-                mensaje: "Gracias, regrese pronto!",
-                respuesta: resp
-            });
-        })
-        .catch((error)=>{
-            res.status(500).send({error:error});
-        })
-    }catch(error){
-
-    }
-});
-
-app.get('/mostrarInfo', (req, res) => {
-    console.log(req);
-    console.log("Procesando solicitud");
-    //responder. 
-    res.status(200).send(
-        "<H1>holaa mundo</H1>"
-    );
-}
-);
-
-
-app.post('/registrarUsuario', async (req, res) => {
+app.post('/logIn', async (req, res) => {
     try {
+        const credentials = await signInWithEmailAndPassword(auth, req.body.email, req.body.password);
+        const db = client.db("Examen_UX");
+        const usersCollection = db.collection("Users");
+        const userdata = usersCollection.findOne({ Email: credentials.getUser().email });
+        if (userdata === null) {
+            res.status(404).send({ mensaje: "Usuario no encontrado" });
+        };
+        res.status(200).send({
+            userdata: userdata
+        });
 
-        const baseDatos = client.db("claseux");
-        const colecion = baseDatos.collection("alumnos");
-        const usuario = req.body.Usuario;
+    } catch (error) {
+        res.status(500).send({ error: error });
+    }
+});
+
+app.post('/logOut', (req, res) => {
+    try {
+        signOut(auth)
+            .then((resp) => {
+                res.status(200).send({
+                    mensaje: "Que tengas un lindo dia, hasta luego"
+                });
+            })
+            .catch((error) => {
+                res.status(500).send({ error: error });
+            })
+    } catch (error) {
+
+    }
+});
+
+
+app.post('/createUser', async (req, res) => {
+    try {
+        const baseDatos = client.db("Examen_UX");
+        const colecion = baseDatos.collection("Users");
+
+        const Email = req.body.email;
         const contrasena = req.body.Contrasena;
+        const nombre = req.body.Nombre;
+        const apellido = req.body.Apellido;
+
         const documento = {
-            Username: usuario,
-            password: contrasena
+            Email: Email,
+            nombre: nombre,
+            apellido: apellido,
         };
 
-        /*
-        C LISTO 
-        R 
-        U
-        D
-        */
-        // const response = await colecion.insertOne(documento);
-        const responseFirebase = await createUserWithEmailAndPassword(auth, usuario, contrasena);
+        const responseFirebase = await createUserWithEmailAndPassword(auth, Email, contrasena);
+        const responseMongo = await colecion.insertOne(documento);
         res.status(201).send(
             {
-                mensaje: "Usuario creado",
-                // repuesta: response,
-                respuestaFirebase: responseFirebase
+                mensaje: "Usuario creado exitosamente en Firebase y MongoDB",
+                idUsuarioMongo: responseMongo.insertedId,
+                idUsuarioFirebase: responseFirebase.user.uid
             }
         );
+
     } catch (error) {
         res.status(500).send(
             {
@@ -230,7 +185,7 @@ app.get('/getInfoUsuarios', async (req, res) => {
 
         const baseDatos = client.db("claseux");
         const coleccion = baseDatos.collection("alumnos");
-                            // select * from alumnos
+        // select * from alumnos
         const response = await coleccion.find({}).toArray();
 
 
@@ -243,42 +198,5 @@ app.get('/getInfoUsuarios', async (req, res) => {
             error: error
         });
     }
-}
-);
-
-app.get('/home', (req, res) => {
-    console.log("retornando homepage ", __dirname, __filename);
-    const archivo = path.join(__dirname, 'homepage.html');
-    res.status(200).sendFile(archivo);
-}
-);
-
-
-app.post('/saludar/:saludo', (req, res) => {
-    console.log(req.params.saludo);
-    res.status(200).send({ mensaje: "Hola!" });
-}
-);
-
-app.get('/saludar/:saludo', (req, res) => {
-    console.log(req.params.saludo);
-    res.status(200).send({ mensaje: "Hola!" });
-}
-);
-
-
-app.get('/infoPrincipal', (req, res) => {
-    /*
-     solicitud a BDD, imagenes, datos 
-    */
-    console.log("ENVIANDO INFO PRINCIPAL");
-    res.status(200).send({
-        informacion: [
-            { id: 123, titulo: "lilo & stitch", },
-            { id: 345, titulo: "Destino final 6." },
-            { id: 678, titulo: "Misión imposible 6 ." },
-            { id: 9999, titulo: "F1." },
-        ]
-    });
 }
 );
