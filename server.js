@@ -200,3 +200,48 @@ app.get('/getInfoUsuarios', async (req, res) => {
     }
 }
 );
+
+app.post('/createPost', async (req, res) => {
+    try {
+        const db = client.db("Examen_UX");
+        const postCollection = db.collection("Post");
+
+        const { title, content, authorId } = req.body;
+
+        const newPost = {
+            title,
+            content,
+            authorId,
+            createdAt: new Date()
+        };
+
+        const result = await postCollection.insertOne(newPost);
+
+        res.status(201).send({
+            mensaje: "Post creado exitosamente",
+            postId: result.insertedId
+        });
+    } catch (error) {
+        res.status(500).send({
+            mensaje: "Error al crear el post",
+            error: error.message
+        });
+    }
+});
+
+app.get('/listPost', async (req, res) => {
+    try {
+        const db = client.db("Examen_UX");
+        const postCollection = db.collection("Post");
+
+        const posts = await postCollection.find({}).toArray();
+
+        res.status(200).send({ posts });
+    } catch (error) {
+        res.status(500).send({
+            mensaje: "Error al obtener los posts",
+            error: error.message
+        });
+    }
+});
+
