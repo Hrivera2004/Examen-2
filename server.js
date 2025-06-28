@@ -245,3 +245,56 @@ app.get('/listPost', async (req, res) => {
     }
 });
 
+app.put('/editPost/:id', async (req, res) => {
+    try {
+        const db = client.db("Examen_UX");
+        const postCollection = db.collection("Post");
+
+        const postId = req.params.id;
+        const { title, content, authorId } = req.body;
+
+        const update = {
+            $set: {
+                title,
+                content,
+                authorId,
+                updatedAt: new Date()
+            }
+        };
+
+        const result = await postCollection.updateOne({ _id: new ObjectId(postId) }, update);
+
+        if (result.matchedCount === 0) {
+            return res.status(404).send({ mensaje: "Post no encontrado" });
+        }
+
+        res.status(200).send({ mensaje: "Post actualizado exitosamente" });
+    } catch (error) {
+        res.status(500).send({
+            mensaje: "Error al actualizar el post",
+            error: error.message
+        });
+    }
+});
+
+app.delete('/deletePost/:id', async (req, res) => {
+    try {
+        const db = client.db("Examen_UX");
+        const postCollection = db.collection("Post");
+
+        const postId = req.params.id;
+
+        const result = await postCollection.deleteOne({ _id: new ObjectId(postId) });
+
+        if (result.deletedCount === 0) {
+            return res.status(404).send({ mensaje: "Post no encontrado" });
+        }
+
+        res.status(200).send({ mensaje: "Post eliminado exitosamente" });
+    } catch (error) {
+        res.status(500).send({
+            mensaje: "Error al eliminar el post",
+            error: error.message
+        });
+    }
+});
