@@ -9,7 +9,20 @@ const { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, sig
 const { title } = require('process');
 let parser = bodyParser.urlencoded({ extended: true });
 
+const cors = require('cors');
+
+var corsOptions = {
+    origin: '*', //no hay front 
+    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    allowedHeaders: ['Content-Type', 'Authorization']
+    //credentials: true //solo si si hay frontend y se necesita enviar cookies o headers
+}
+let corsPolicy = cors(corsOptions);
+
+app.use(corsPolicy);
 app.use(parser);
+
+
 const port = process.env.PORT || 3000;
 const uri = process.env.MONGO_URI;
 
@@ -54,19 +67,33 @@ app.listen(port, () => {
 
 app.post('/logIn', async (req, res) => {
     try {
-        const credentials = await signInWithEmailAndPassword(auth, req.body.email, req.body.password);
+
+        if (!req.body.email || !req.body.password) {
+            return res.status(400).send({ mensaje: "Email y contraseña son requeridos" });
+        }
+
+        const credentials = 
+        await signInWithEmailAndPassword(auth, req.body.email,  req.body.password);
+
+
+        
         const db = client.db("Examen_UX");
         const usersCollection = db.collection("Users");
-        const userdata = usersCollection.findOne({ Email: credentials.getUser().email });
+        const userdata = await usersCollection.findOne({ Email: req.body.email });
         if (userdata === null) {
-            res.status(404).send({ mensaje: "Usuario no encontrado" });
+            return res.status(404).send({ mensaje: "Usuario no encontrado" });
         };
-        res.status(200).send({
-            userdata: userdata
+        const postCollection = db.collection("Post");
+        const post = await postCollection.find({ authorId: userdata._id }).toArray();
+        return res.status(200).send({
+            Email: userdata.Email,
+            nombre: userdata.nombre,
+            apellido: userdata.apellido,
+            post: post
         });
 
-    } catch (error) {
-        res.status(500).send({ error: error });
+    } catch (Error) {
+        return res.status(500).send({ error: Error.message });
     }
 });
 
@@ -125,81 +152,6 @@ app.post('/createUser', async (req, res) => {
 }
 );
 
-app.put('/editarUsuario', async (req, res) => {
-    try {
-
-        const baseDatos = client.db("claseux");
-        const coleccion = baseDatos.collection("alumnos");
-
-        const filter = { username: req.body.username };
-        const updateDocument = {
-            $set: {
-                nuevoCampo: req.body.nuevo,
-                password: req.body.password,
-            },
-        };
-        const response = await coleccion.updateOne(filter, updateDocument);
-
-
-        res.status(200).send({
-            response: response
-        });
-
-    } catch (error) {
-        res.status(500).send({
-            error: error
-        });
-    }
-}
-);
-
-app.delete('/eliminarUsuario/:id', async (req, res) => {
-
-    try {
-
-        const baseDatos = client.db("claseux");
-        const coleccion = baseDatos.collection("alumnos");
-        const response = await coleccion.deleteOne({
-            _id: new ObjectId(req.params.id)
-        });
-        if (response.deletedCount === 0) {
-            res.status(400).send({
-                mensaje: "No se encontró ningun documento con ese ID"
-            });
-        } else {
-            res.status(200).send({
-                mensaje: "Documento eliminado con exito!"
-            });
-        }
-
-    } catch (error) {
-        res.status(500).send({
-            error: error
-        });
-    }
-}
-);
-
-app.get('/getInfoUsuarios', async (req, res) => {
-    try {
-
-        const baseDatos = client.db("claseux");
-        const coleccion = baseDatos.collection("alumnos");
-        // select * from alumnos
-        const response = await coleccion.find({}).toArray();
-
-
-        res.status(200).send({
-            response: response
-        });
-
-    } catch (error) {
-        res.status(500).send({
-            error: error
-        });
-    }
-}
-);
 
 app.post('/createPost', async (req, res) => {
     try {
@@ -211,7 +163,7 @@ app.post('/createPost', async (req, res) => {
         const newPost = {
             title,
             content,
-            authorId,
+            authorId:  ObjectId.createFromHexString(authorId),
             createdAt: new Date()
         };
 
@@ -257,7 +209,7 @@ app.put('/editPost/:id', async (req, res) => {
             $set: {
                 title,
                 content,
-                authorId,
+                authorId: ObjectId.createFromHexString(authorId),
                 updatedAt: new Date()
             }
         };
